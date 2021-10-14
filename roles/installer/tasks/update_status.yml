@@ -3,25 +3,52 @@
   operator_sdk.util.k8s_status:
     api_version: '{{ api_version }}'
     kind: "{{ kind }}"
-    name: "{{ meta.name }}"
-    namespace: "{{ meta.namespace }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      towerAdminPasswordSecret: "{{ admin_password_secret['resources'][0]['metadata']['name'] }}"
+      adminPasswordSecret: "{{ __admin_password_secret['resources'][0]['metadata']['name'] }}"
 
 - name: Update admin user status
   operator_sdk.util.k8s_status:
     api_version: '{{ api_version }}'
     kind: "{{ kind }}"
-    name: "{{ meta.name }}"
-    namespace: "{{ meta.namespace }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      towerAdminUser: "{{ tower_admin_user }}"
+      adminUser: "{{ admin_user }}"
+
+- name: Update postgres configuration status
+  operator_sdk.util.k8s_status:
+    api_version: '{{ api_version }}'
+    kind: "{{ kind }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      postgresConfigurationSecret: "{{ pg_config['resources'][0]['metadata']['name'] }}"
+
+- name: Update broadcast websocket status
+  operator_sdk.util.k8s_status:
+    api_version: '{{ api_version }}'
+    kind: "{{ kind }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      broadcastWebsocketSecret: "{{ __broadcast_websocket_secret['resources'][0]['metadata']['name'] }}"
+
+- name: Update secret key status
+  operator_sdk.util.k8s_status:
+    api_version: '{{ api_version }}'
+    kind: "{{ kind }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      secretKeySecret: "{{ secret_key_secret_name }}"
 
 - name: Retrieve instance version
-  community.kubernetes.k8s_exec:
-    namespace: "{{ meta.namespace }}"
+  k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ tower_pod_name }}"
-    container: "{{ meta.name }}-task"
+    container: "{{ ansible_operator_meta.name }}-task"
     command: >-
       bash -c "awx-manage --version"
   register: instance_version
@@ -31,45 +58,46 @@
   operator_sdk.util.k8s_status:
     api_version: '{{ api_version }}'
     kind: "{{ kind }}"
-    name: "{{ meta.name }}"
-    namespace: "{{ meta.namespace }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      towerVersion: "{{ instance_version.stdout | trim }}"
+      version: "{{ instance_version.stdout | trim }}"
 
 - name: Update image status
   operator_sdk.util.k8s_status:
     api_version: '{{ api_version }}'
     kind: "{{ kind }}"
-    name: "{{ meta.name }}"
-    namespace: "{{ meta.namespace }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      towerImage: "{{ tower_image }}"
+      image: "{{ image }}"
 
 - block:
     - name: Retrieve route URL
-      community.kubernetes.k8s_info:
+      k8s_info:
+        api_version: 'route.openshift.io/v1'
         kind: Route
-        namespace: '{{ meta.namespace }}'
-        name: '{{ meta.name }}'
+        namespace: '{{ ansible_operator_meta.namespace }}'
+        name: '{{ ansible_operator_meta.name }}'
       register: route_url
 
     - name: Update URL status
       operator_sdk.util.k8s_status:
         api_version: '{{ api_version }}'
         kind: "{{ kind }}"
-        name: "{{ meta.name }}"
-        namespace: "{{ meta.namespace }}"
+        name: "{{ ansible_operator_meta.name }}"
+        namespace: "{{ ansible_operator_meta.namespace }}"
         status:
-          towerURL: "https://{{ route_url['resources'][0]['status']['ingress'][0]['host'] }}"
+          URL: "https://{{ route_url['resources'][0]['status']['ingress'][0]['host'] }}"
 
-  when: tower_ingress_type | lower == 'route'
+  when: ingress_type | lower == 'route'
 
-- name: Update towerMigratedFromSecret status
+- name: Update migratedFromSecret status
   operator_sdk.util.k8s_status:
     api_version: '{{ api_version }}'
     kind: "{{ kind }}"
-    name: "{{ meta.name }}"
-    namespace: "{{ meta.namespace }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      towerMigratedFromSecret: "{{ tower_migrated_from_secret }}"
+      migratedFromSecret: "{{ tower_migrated_from_secret }}"
   when: tower_migrated_from_secret is defined
